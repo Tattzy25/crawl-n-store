@@ -128,7 +128,7 @@ function createServer(env: Env) {
         const slug =
           new URL(record.url).pathname.replace(/\//g, "_").replace(/^_|_$/g, "") ||
           "index";
-        const key = `tenants/${tenantId}/collections/${slug}.json`;
+        const key = `${tenantId}/collections/${slug}.json`;
         await env.R2.put(key, JSON.stringify(record.json), {
           httpMetadata: { contentType: "application/json" },
         });
@@ -140,7 +140,7 @@ function createServer(env: Env) {
         .filter((r) => r.json)
         .map((r) => r.json!);
       await env.R2.put(
-        `tenants/${tenantId}/collections.json`,
+        `${tenantId}/collections.json`,
         JSON.stringify(allCollections),
         { httpMetadata: { contentType: "application/json" } }
       );
@@ -149,7 +149,32 @@ function createServer(env: Env) {
         content: [
           {
             type: "text" as const,
-            text: `Crawled ${records.length} pages. Stored ${stored.length} collections in R2 under tenants/${tenantId}/collections/`,
+            text: `Crawled ${records.length} pages. Stored ${stored.length} collections in R2 under ${tenantId}/collections/`,
+          },
+        ],
+      };
+    }
+  );
+    server.registerTool(
+    "get_collections",
+    {
+      description:
+        "Retrieve stored collections for a tenant directly from R2. No crawling — instant read from the bucket.",
+      inputSchema: {
+        tenantId: z.string().describe("Tenant identifier (merchant folder name in R2)"),
+      },
+    },
+    async (args) => {
+      const { tenantId } = args;
+
+      const obj = await env.R2.get(`${tenantId}/collections.json`);
+      const collections = await obj.json();
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(collections),
           },
         ],
       };
