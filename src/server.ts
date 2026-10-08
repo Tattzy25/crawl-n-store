@@ -58,14 +58,17 @@ function createServer(env: Env) {
           response_format: {
             type: "json_schema",
             json_schema: {
-              name: "collection",
+              name: "extracted_collections",
               schema: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  url: { type: "string" },
-                  imageUrl: { type: "string" },
-                  description: { type: ["string", "null"] },
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    url: { type: "string" },
+                    imageUrl: { type: "string" },
+                    description: { type: ["string", "null"] },
+                  },
                 },
               },
             },
@@ -135,10 +138,10 @@ function createServer(env: Env) {
         stored.push(key);
       }
 
-      // Store manifest with all collections as an array
+      // Store manifest — flatten arrays from each page into one flat list
       const allCollections = records
         .filter((r) => r.json)
-        .map((r) => r.json!);
+        .flatMap((r) => (Array.isArray(r.json) ? r.json : [r.json]));
       await env.R2.put(
         `${tenantId}/collections.json`,
         JSON.stringify(allCollections),
@@ -149,13 +152,14 @@ function createServer(env: Env) {
         content: [
           {
             type: "text" as const,
-            text: `Crawled ${records.length} pages. Stored ${stored.length} collections in R2 under ${tenantId}/collections/`,
+            text: `Crawled ${records.length} pages. Stored ${allCollections.length} collections in R2 under ${tenantId}/collections/`,
           },
         ],
       };
     }
   );
-    server.registerTool(
+
+  server.registerTool(
     "get_collections",
     {
       description:
